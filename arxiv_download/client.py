@@ -32,6 +32,7 @@ class Entry:
                 dlink = link["href"]
         assert dlink is not None, "Key = href not found in links."
         if use_proxy:
+            print("[WARNING] use proxy `xxx.itp.ac.cn` to download files")
             dlink = dlink.replace("arxiv.org", "xxx.itp.ac.cn")
 
         return dlink
@@ -46,6 +47,9 @@ class Client:
         max_results: int = 10,
         max_workers: int = 8,
         output_dir: str = "./output",
+        sort_by: str = "lastUpdatedDate",
+        sort_order: str = "descending",
+        num_retries: int = 5,
     ) -> None:
         # base api query url
         base_url = "http://export.arxiv.org/api/query?"
@@ -53,7 +57,7 @@ class Client:
         # the parameters of query search
         self.query = query
         self.max_results = max_results
-        parameters = f"search_query=all:{query}&start={start_id}&max_results={max_results}"
+        parameters = f"search_query=all:{query}&start={start_id}&max_results={max_results}&sortBy={sort_by}&sortOrder={sort_order}"
 
         # the request url
         self.request_url = f"{base_url}{parameters}"
@@ -63,6 +67,11 @@ class Client:
 
         # the output directory to save download files
         self.output_dir = output_dir
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
+
+        # the number of retries to search when results is None
+        self.num_retries = num_retries
 
     def get_output_paths(self, entry: Entry) -> str:
         filename = entry.arxiv_id.split("/")[-1].strip()
@@ -85,6 +94,16 @@ class Client:
         # get entries, each entry is a query result
         assert "entries" in response.keys()
         query_entries: List[dict] = response["entries"]
+        if len(query_entries) == 0:
+            num = 0
+            while len(query_entries) == 0 and num < self.num_retries:
+                print(f"[WARNING] The {num + 1} retry...")
+                response: dict = feedparser.parse(self.request_url)
+                query_entries: List[dict] = response["entries"]
+                num += 1
+        assert len(
+            query_entries
+        ) > 0, "[ERROR] Error when searching results, please check network or increase --num-retries"
         num_results = len(query_entries)
         if num_results != self.max_results:
             print(
