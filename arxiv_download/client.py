@@ -25,13 +25,14 @@ class Entry:
     def num_authors(self) -> int:
         return len(self.authors)
 
-    @property
-    def download_link(self) -> str:
+    def download_link(self, use_proxy: bool) -> str:
         dlink: str = None
         for link in self.links:
             if "title" in link and link["title"] == "pdf":
                 dlink = link["href"]
         assert dlink is not None, "Key = href not found in links."
+        if use_proxy:
+            dlink = dlink.replace("arxiv.org", "xxx.itp.ac.cn")
 
         return dlink
 
@@ -42,7 +43,7 @@ class Client:
         self,
         query: str = "electron",
         start_id: int = 0,
-        max_results: int = 5,
+        max_results: int = 10,
         max_workers: int = 8,
         output_dir: str = "./output",
     ) -> None:
@@ -76,7 +77,8 @@ class Client:
             for chunk in response.iter_content(1024):
                 f.write(chunk)
 
-    def download_files(self) -> None:
+    def download_files(self, use_proxy: bool = False) -> None:
+        print(f"[INFO] the request url: {self.request_url}")
         response: dict = feedparser.parse(self.request_url)
         assert response["status"] == 200
 
@@ -99,7 +101,7 @@ class Client:
         print(
             f"[INFO] begin to download {num_results} files about {self.query} and save to {self.output_dir}"
         )
-        urls = [e.download_link for e in entries]
+        urls = [e.download_link(use_proxy) for e in entries]
         output_paths = [self.get_output_paths(e) for e in entries]
         with ProcessPoolExecutor(max_workers=self.max_workers) as e:
             list(

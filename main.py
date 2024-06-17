@@ -21,6 +21,9 @@ def parse_args():
                         type=str,
                         default="./output",
                         help="The output directory to save files")
+    parser.add_argument("--use-proxy",
+                        action="store_true",
+                        help="Whether to use proxy to download files")
 
     return parser.parse_args()
 
@@ -32,4 +35,4 @@ if __name__ == "__main__":
                     max_results=args.max_results,
                     max_workers=args.max_workers,
                     output_dir=args.output_dir)
-    client.download_files()
+    client.download_files(args.use_proxy)
